@@ -151,6 +151,7 @@ class KeyPlayGui(object):
 		
 		
 		window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+		window.set_position(gtk.WIN_POS_MOUSE)
 		window.set_default_size(140, 70)
 		window.connect("delete_event", self.delete_event)
 		window.connect("destroy", lambda _: self.destroy() )
