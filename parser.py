@@ -45,6 +45,17 @@ def shift_type_seq(cc):
 	yield (REL, 'LEFTSHIFT')
 	yield (NUL, AFTER_DELAY)
 
+
+def copy_seq():	
+	yield (HLD, 'LEFTCTRL')
+	yield (NUL, MICRO_DELAY)			
+	yield (HLD, 'C')
+	yield (NUL, HOLD_DELAY)
+	yield (REL, 'C')
+	yield (NUL, MICRO_DELAY)
+	yield (REL, 'LEFTCTRL')
+	yield (NUL, AFTER_DELAY)
+
 def gtkunicode_type_seq(c):
 	yield (HLD, 'LEFTCTRL')
 	yield (NUL, ZERO_DELAY)
@@ -111,24 +122,24 @@ class Parser:
 		self.input = f.read().decode('utf-8')
 		self.stack = []
 
-	def get(self):
-		if self.pos >= len(self.input):
-			self.pos += 1
-			return "EOF"
-			
-		else:
-			x = self.input[self.pos]
-			self.pos += 1
-			return x
-			
-		
 	def unget(self):
 		if self.pos > 0:
 			self.pos -= 1
 		else:
 			raise Exception('unget not possible')
 	
-	
+	def peek(self):
+		if self.pos >= len(self.input):
+			return "EOF"			
+		else:
+			x = self.input[self.pos]
+			return x
+
+	def get(self):
+		c = self.peek()
+		self.pos += 1
+		return c
+			
 	
 	
 	def parse(self):
@@ -142,7 +153,7 @@ class Parser:
 		COMMAND = 4
 		op = ''
 		ident = []
-		
+		param = None
 		
 		state = READY
 		
@@ -200,13 +211,24 @@ class Parser:
 				elif x == u')':
 					symb = u''.join(ident)
 					
-					assert symb in ['pause', 'unlink', 'clear']
-					
-					yield (SRC, u'({})'.format(symb))
-					yield (CMD, symb)
+					#assert symb in ['pause', 'unlink', 'clear', 'assert']
+
+					if symb == 'assert':
+						for _ in copy_seq():
+							yield _
+		
+					yield (SRC, (symb, param))
+					yield (CMD, (symb, param))
+						
 					ident = []
 					op = ''
 					state = READY
+					param = None
+
+				elif x in char.whites:
+					accept_whites(self)
+					param = accept_string(self)
+					
 				
 				elif x == 'EOF':							
 					raise Exception('EOF inside command')
@@ -276,7 +298,45 @@ class Parser:
 			else:
 				raise Exception('corrupt state')
 				
+
+
+
+class char:
+	whites = u" \t\n"
+	
+	
+def accept_whites(f):
+	while f.peek() in char.whites:
+		f.get()		
+
+def accept_escaped_char(f):
+	c = f.get()
+	if c == 't':
+		return u'\t'
+	if c == 'n':
+		return u'\n'
+	raise Exception("unknown escape char")
+
+def accept_string(f):
+	if f.get() != '"':
+		raise Exception("expected \\\\")
+
+	xs = []
+	while 1:
+		c = f.get()
+
+		if c == '"':			
+			break;
+		if c == '\\':
+			c = accept_escaped_char(f)
+
+		xs.append(c)
 		
+	accept_whites(f)
+	return u''.join(xs) 
+	
+
+
 				
 	
 

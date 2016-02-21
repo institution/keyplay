@@ -31,6 +31,19 @@ def buffered_stdin_lines():
 
 from subprocess import Popen, PIPE, STDOUT
 
+
+def clear_clipboard():
+	return subprocess.call(["xsel", "-b", "--clear"])
+
+def get_clipboard():
+	return subprocess.check_output(["xsel", "-b"])
+
+ABORT = 'Abort!'
+FAILED = "Assertion Failed"
+PLAY = "Play"
+CONTINUE = "Continue..."
+
+
 # long list filter app
 class KeyPlayGui(object):
 
@@ -45,15 +58,23 @@ class KeyPlayGui(object):
 		gtk.main_quit()
 
 	def poke_button(self, x):
-		ABORT = 'Abort!'
+		
+				
 		if self.button.get_label() == ABORT:
 			# self.clear_keyboard()
 			self.clear_mods()
 			self.destroy()
+			
 		
-		self.button.set_label(ABORT)
-		self.play()		
-		
+		if self.button.get_label() in [PLAY, CONTINUE]:
+			self.button.set_label(ABORT)
+			self.play()		
+
+		if self.button.get_label().startswith(FAILED):
+			self.clear_mods()
+			self.destroy()
+			
+
 		
 		
 	def load_script(self, fname):
@@ -73,7 +94,8 @@ class KeyPlayGui(object):
 		self.evproc.stdin.write(packs(ev))
 	
 	def reset_kb(self):
-
+		clear_clipboard()
+		
 		import commands
 		x = commands.getoutput('xset q | grep LED')[65]
 		
@@ -112,16 +134,36 @@ class KeyPlayGui(object):
 				return
 				
 			elif cmd == CMD:
-				if arg == 'pause':
-					self.button.set_label("Continue...")
+				command, parameter = arg
+				
+				if command == 'pause':
+					assert parameter is None
+					self.button.set_label(CONTINUE)
 					return
 					
-				elif arg == 'clear':
+				elif command == 'clear':
+					assert parameter is None
 					# reset keyboard state
 					self.reset_kb()
 					
-				elif arg == 'unlink':
+					
+				elif command == 'unlink':
+					assert parameter is None
 					self.f_unlink = 1
+
+				elif command == 'assert':
+					if parameter == get_clipboard():
+						pass
+						
+					else:
+						print "Assertion Failed"
+						print "clip: ", repr(get_clipboard())
+						print "data: ", repr(parameter)
+						
+						self.button.set_label(FAILED+"\n"+parameter+"\n"+get_clipboard())
+						return
+	
+									
 				else:
 					raise Exception('unknown command')
 					
